@@ -2,7 +2,7 @@
 
 A lightweight, browser-based tool designed to help Punjabi Wikimedians easily check if English Wikipedia articles or categories exist on Punjabi Wikipedia.
 
-[**Live Demo**](https://kuldeepburjbhalaike.github.io/Category-Translator/)
+[**Tool Link**](https://kuldeepburjbhalaike.github.io/Interwiki-Checker/)
 
 ## 🚀 Features
 
