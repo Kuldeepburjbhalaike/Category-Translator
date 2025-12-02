@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interwiki-Checker</title>
+    <title>Interwiki Checker</title>
     <style>
         /* --- Color Variables --- */
         :root {
@@ -91,7 +91,6 @@
             flex: 1;
         }
         
-        /* Radio Button Group */
         .mode-selector {
             display: flex;
             gap: 20px;
@@ -244,7 +243,7 @@
     </div>
 
     <label for="inputList" class="section-label">Input (English):</label>
-    <textarea id="inputList" placeholder="Example:&#10;History of Punjab&#10;Sikhism&#10;Golden Temple"></textarea>
+    <textarea id="inputList" placeholder="Example:&#10;History of Punjab&#10;history of india (will auto-fix)&#10;Golden Temple"></textarea>
     
     <button id="btnCheck" class="primary-btn" onclick="processList()">Check Availability</button>
     <div id="status" class="status"></div>
@@ -258,7 +257,7 @@
     <table id="resultsTable" style="display:none;">
         <thead>
             <tr>
-                <th>English Title</th>
+                <th>English Title (Corrected)</th>
                 <th>Punjabi Link</th>
             </tr>
         </thead>
@@ -276,14 +275,19 @@
 </footer>
 
 <script>
-    // --- UI Logic: Update Placeholder based on Mode ---
+    // --- Helper: Capitalize First Letter ---
+    function capitalizeFirst(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+
+    // --- UI Logic ---
     function updatePlaceholder() {
         const mode = document.querySelector('input[name="checkMode"]:checked').value;
         const textarea = document.getElementById('inputList');
         if (mode === 'category') {
             textarea.placeholder = "Example: (Category Mode)\nCategory:History of Punjab\nSikhism\nComputer science";
         } else {
-            textarea.placeholder = "Example: (Article Mode)\nHistory of Punjab\nGolden Temple\nMaharaja Ranjit Singh";
+            textarea.placeholder = "Example: (Article Mode)\nHistory of Punjab\nhistory of india (will fix automatically)\nMaharaja Ranjit Singh";
         }
     }
 
@@ -302,7 +306,6 @@
         }
     }
 
-    // Initialize Theme
     const savedTheme = localStorage.getItem('theme');
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -326,7 +329,6 @@
         const outputBox = document.getElementById('outputRaw');
         const btn = document.getElementById('btnCheck');
         
-        // Get Selected Mode
         const mode = document.querySelector('input[name="checkMode"]:checked').value;
 
         tbody.innerHTML = '';
@@ -346,11 +348,12 @@
         
         // CLEANUP & FORMATTING
         let items = rawLines.map(line => {
-            // Remove [[ and ]] and trim
             let clean = line.replace(/\[\[|\]\]/g, '').trim();
             if (!clean) return null;
             
-            // If Mode is CATEGORY: Force "Category:" prefix
+            // Auto-Capitalize first letter (Wikipedia Standard)
+            clean = capitalizeFirst(clean);
+
             if (mode === 'category') {
                 if (!clean.toLowerCase().startsWith('category:')) {
                     return 'Category:' + clean;
@@ -381,19 +384,20 @@
         const outputBox = document.getElementById('outputRaw');
         const titlesParam = batch.join('|');
 
-        // API Endpoint
-        const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&prop=langlinks&lllang=pa&llprop=url&titles=${encodeURIComponent(titlesParam)}`;
+        // ADDED &redirects=1 and &converts=1
+        const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&converts=1&prop=langlinks&lllang=pa&llprop=url&titles=${encodeURIComponent(titlesParam)}`;
 
         try {
             const response = await fetch(url);
             const data = await response.json();
             const pages = data.query?.pages || {};
 
+            // Handle Redirects info (optional but good for debugging)
+            const redirects = data.query?.redirects || [];
+            
             Object.values(pages).forEach(page => {
-                // Ensure page exists in English Wiki (pageid is missing if EN page doesn't exist)
+                // If page doesn't exist in English
                 if (typeof page.pageid === 'undefined' && page.missing !== undefined) {
-                     // English page doesn't exist, we skip or show error
-                     // Optional: You could log "Page not found in English Wiki"
                      return; 
                 }
 
@@ -401,22 +405,20 @@
                 const enCell = document.createElement('td');
                 const paCell = document.createElement('td');
 
+                // Use page.title (This is the CORRECT capitalized/redirected title)
                 enCell.textContent = page.title;
 
                 if (page.langlinks && page.langlinks.length > 0) {
                     const paLink = page.langlinks[0];
                     const paTitle = paLink['*'];
                     
-                    // Table Link
                     const link = document.createElement('a');
                     link.href = paLink.url;
                     link.target = "_blank";
                     link.textContent = paTitle;
                     paCell.appendChild(link);
 
-                    // Copy Box List
                     outputBox.value += `[[${paTitle}]]\n`;
-
                 } else {
                     paCell.textContent = "Not found on pa-wiki";
                     paCell.className = "missing";
